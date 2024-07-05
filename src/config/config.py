@@ -91,14 +91,52 @@ def generate_config(config_type, inference_domain, prompt_domain=None, prompt_ty
     
 
 
-def calibrate_prompt_cd(slot_domain, answer, instruction, model = model_t5_prompt, tokenizer = tokenizer_t5_prompt):
-    domain = slot_domain.split('_')[0]
-    slot = slot_domain.split('_')[1]
-    if domain not in answer:
-        calibrate_prompt_cd = contrastive_decoding_noncausal(slot_domain, instruction, model, tokenizer)
-    else:
-        return answer
 
+def contrastive_decoding_noncausal(slot_domain, data, model, tokenizer):
+    prompt_temp = """
+[INST]1.Transform the original slot <Restaurant-Time> into a clearer, user-friendly question that seeks the same information with {}
+2.Enrich the new question with the relevant context in {}, like adjectival phrases for the domain or synonyms for the slot [/INST]  """
+    prompt_temp_cd = """
+[INST]1.Craft a question that incorporates both the domain and the slot found within the dialogue.
+2.Enrich the new question with the relevant context in {}, like adjectival phrases for the domain or synonyms for the slot. [/INST] """
+    input_seq1 = prompt_temp.format(data['domain_slot_name'], data['dialouge'])  +"\n Optmized Prompt: "
+    input_seq2 = prompt_temp_cd.format(data['dialogue'])   +"\n Optmized Prompt: "
+
+
+    interpolation = 0.9
+    input_ids1 = tokenizer(input_seq1, return_tensors='pt', max_length=1024).input_ids.cuda()
+    input_ids2 = tokenizer(input_seq2, return_tensors='pt', max_length=1024).input_ids.cuda()
+
+    decoder_start_token_id = tokenizer.pad_token_id
+    decoder_input_ids = torch.tensor([[decoder_start_token_id]]).to(device)
+
+    max_length = 50  
+    decoded_sequence = ""
+
+    for _ in range(max_length):
+        with torch.no_grad():
+            outputs1 = model(input_ids=input_ids1, decoder_input_ids=decoder_input_ids)
+            outputs2 = model(input_ids=input_ids2, decoder_input_ids=decoder_input_ids)
+
+            next_token_logits1 = outputs1.logits[:, -1, :]
+            next_token_logits2 = outputs2.logits[:, -1, :]
+            prob1 = F.log_softmax(next_token_logits1, dim=-1)
+
+            prob2 = F.log_softmax(next_token_logits2, dim=-1)
+            mask = torch.zeros_like(prob2, dtype=torch.bool)
+            mask[0][prob2.argmax(dim=-1).item()] = 0.01
+            prob2 = prob2 * mask
+
+            debiased_prob = prob1 - interpolation * prob2
+            next_token_id = debiased_prob.argmax(dim=-1, keepdim=True)
+ 
+        decoder_input_ids = torch.cat((decoder_input_ids, next_token_id), dim=1)
+      
+        decoded_sequence = tokenizer.decode(decoder_input_ids[0], skip_special_tokens=True)
+
+        if next_token_id.item() == tokenizer.eos_token_id:
+            break
+    return decoded_sequence
 
 
 
