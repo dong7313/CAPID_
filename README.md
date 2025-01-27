@@ -19,16 +19,16 @@ cd src/data_preprocess/
 python MultiWOZ20_preprocess.py
 python data_prepare_zeroshot_MultiWOZ20.py
 ```
-
+The following instructions are based on using the hotel domain as a zero-shot test domain.
 ## Auto-prompting
+We provide 1000 examples for hotel domain in raw_data/multiwoz/data/MultiWOZ_2.1_chatgpt/base/test_hotel_chat_LLM_zero-shot.json. These examples have been generated using auto-prompting.
 ```ruby
 cd src/autoprompt/
-python autoprompt.py
+python autoprompt.py --inference_domain hotel
 ```
 
 ## Finetuning For Student Model
-We choose T5-base as the backbone model for student model due to inference efficiency. Please specify your model path in src/config/finetune_t5_prompt_config.py
-
+We have chosen T5-base as the backbone model for the student model due to its inference efficiency. Please specify the path to your T5-base model in src/config/finetune_t5_prompt_config.py
 ```ruby
 cd src/finetune/
 CUDA_VISIBLE_DEVICES=0 python finetune_t5_prompt.py --inference_domain hotel
@@ -36,7 +36,18 @@ CUDA_VISIBLE_DEVICES=0 python finetune_t5_prompt.py --inference_domain hotel
 ```
 
 ## Inference For Student Model
-If you want to test on Hotel domain, then perform inference setting "inference_domain == hotel & prompt_domain == hotel & prompt_type test" and " == hotel & prompt_domain == {other domain} & prompt_type train" and 
+To test on the hotel domain, set the following parameters:
+```python
+inference_domain == hotel
+prompt_domain == hotel
+prompt_type == test
+```
+Additionally, for cross-domain training, set:
+```
+inference_domain == hotel
+prompt_domain == {other domain}
+prompt_type == train
+```
 ```ruby
 cd src/inference/
 CUDA_VISIBLE_DEVICES=0 python inference_t5_prompt.py --inference_domain hotel --prompt_domain hotel --prompt_type test
@@ -44,6 +55,7 @@ CUDA_VISIBLE_DEVICES=0 python inference_t5_prompt.py --inference_domain hotel --
 
 
 ## Finetuning For DST Model
+We provide the training parameters for LoRA in the hotel domain at checkpoints/MultiWOZ_2.1/result_finetune/llama2_exp/hotel_128_4_1/.
 ```ruby
 cd src/finetune/
 CUDA_VISIBLE_DEVICES=0 python fintune_t5_result.py --inference_domain hotel  ## for t5 Model
