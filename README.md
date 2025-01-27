@@ -1,4 +1,5 @@
 # CAPID: Zero-shot Cross-domain Dialogue State Tracking via Context-aware Auto-prompting and Instruction-following Contrastive Decoding
+Thank you for your interest in our work, and this is the original implementation of "Zero-shot Cross-domain Dialogue State Tracking via Context-aware Auto-prompting and Instruction-following Contrastive Decoding".
 ## Data preparation
 We use the data processing script provided by [DST-as-Prompting](https://github.com/chiahsuan156/DST-as-Prompting) for data pre-processing, post-processing and evaluation.
 
@@ -43,7 +44,7 @@ prompt_domain == hotel
 prompt_type == test
 ```
 Additionally, for cross-domain training, set:
-```
+```python
 inference_domain == hotel
 prompt_domain == {other domain}
 prompt_type == train
@@ -55,7 +56,7 @@ CUDA_VISIBLE_DEVICES=0 python inference_t5_prompt.py --inference_domain hotel --
 
 
 ## Finetuning For DST Model
-We provide the training parameters for LoRA in the hotel domain at checkpoints/MultiWOZ_2.1/result_finetune/llama2_exp/hotel_128_4_1/.
+We provide the training parameters for LoRA in the hotel domain at checkpoints/MultiWOZ_2.1/result_finetune/llama2_exp/hotel_128_4_1/
 ```ruby
 cd src/finetune/
 CUDA_VISIBLE_DEVICES=0 python fintune_t5_result.py --inference_domain hotel  ## for t5 Model
@@ -74,4 +75,16 @@ CUDA_VISIBLE_DEVICES=0  python inference_llama_results.py --inference_domain hot
 ```ruby
 cd src/evaluation/
 CUDA_VISIBLE_DEVICES=0 python evaluation.py --inference_domain hotel
+```
+
+## Citation
+If this work proves beneficial or use our code for your research, citing our paper would be greatly appreciated.
+```
+@inproceedings{dong2024zero,
+  title={Zero-shot Cross-domain Dialogue State Tracking via Context-aware Auto-prompting and Instruction-following Contrastive Decoding},
+  author={Dong, Xiaoyu and Feng, Yujie and Lu, Zexin and Shi, Guangyuan and Wu, Xiao-Ming},
+  booktitle={Proceedings of the 2024 Conference on Empirical Methods in Natural Language Processing},
+  pages={8527--8540},
+  year={2024}
+}
 ```
