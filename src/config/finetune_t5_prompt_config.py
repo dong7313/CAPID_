@@ -3,32 +3,29 @@ import os
 import sys
 import re
 
-'''单个domain'''
-def gen_finetune_t5_prompt(inference_domain):
-    from config import global_args,DotDict,domain_split
-    train_domain = domain_split[inference_domain][0]
-    chatgpt_domain = domain_split[inference_domain][1]
+
+def gen_finetune_t5_prompt(inference_domain, *args, **kwargs):
+    from config import global_args,DotDict
     multi20_domain = list(global_args.multi20_domain_dict.keys())
     multi20_domain.remove(inference_domain)
 
-    #一些需要继续调整的参数
+
     batch_size = 8
     micro_batch_size = 4
     num_epochs = 15
-
     max_input_length = 1024
     max_target_length = 128
+    # t5_base: "your t5_base model path"
+    base_model_path_dict = {'t5_base':'google-t5/t5-base'}
 
-    base_model_path_dict = {}
     base_model_type = 't5_base'
     base_model_path = base_model_path_dict[base_model_type] 
-    if not os.path.exists(base_model_path):
-        print(f"fine tuned mode path {base_model_path} not find!")
-        sys.exit(1)   
-    assert (
-        base_model_path
-    ), "Please specify a --model_path, e.g. --model_path='xxx'"
-
+    # if not os.path.exists(base_model_path):
+    #     print(f"fine tuned mode path {base_model_path} not find!")
+    #     sys.exit(1)   
+    # assert (
+    #     base_model_path
+    # ), "Please specify a --model_path, e.g. --model_path='xxx'"
 
     # output_dir
     base_model_output_dir = os.path.join('../../checkpoints/MultiWOZ_2.1/', base_model_type, '_'.join(map(str, [inference_domain, batch_size, micro_batch_size, num_epochs])))
@@ -36,11 +33,12 @@ def gen_finetune_t5_prompt(inference_domain):
     # data_path
     data_path_list = []
 
-    chatgpt_data_dir = '../../raw_data/multiwoz/data/MultiWOZ_2.1_chatgpt/base_bak'
-    for filename in os.listdir(chatgpt_data_dir):
-        if os.path.isfile(os.path.join(chatgpt_data_dir, filename)) and 'json' in filename:
-            data_path_list.append(os.path.join(chatgpt_data_dir, filename))
-  
+
+    chatgpt_data_dir = f'../../raw_data/multiwoz/data/MultiWOZ_2.1_chatgpt/base/'
+    for domain in multi20_domain:
+        if os.path.isfile(os.path.join(chatgpt_data_dir, f'test_{domain}_chat_LLM_zero-shot.json')):
+            data_path_list.append(os.path.join(chatgpt_data_dir, f'test_{domain}_chat_LLM_zero-shot.json'))
+
     val_data_path_list = None
 
     #gradient_accumulation_steps
@@ -68,8 +66,8 @@ def gen_finetune_t5_prompt(inference_domain):
         'device_map':device_map,
         'base_model': base_model_path,  # the only required argument
         'output_dir': base_model_output_dir,
-    'batch_size':batch_size,
-    'num_epochs': num_epochs,
+        'batch_size':batch_size,
+        'num_epochs': num_epochs,
         'ignore_pad_token_for_loss': True,
         'num_epochs': num_epochs,
         'max_input_length':max_input_length,

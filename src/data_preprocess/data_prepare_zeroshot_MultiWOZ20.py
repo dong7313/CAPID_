@@ -59,8 +59,6 @@ if __name__ == '__main__':
         #sys.exit(1)
         for idx_ in range(len(idx_lines)):
             dial_text = eval(test_data_lines[idx_].strip())
-
-            
             original_number += 1
             item = {}
             idx_list = idx_lines[idx_].strip()
@@ -69,7 +67,6 @@ if __name__ == '__main__':
             domain_slot_name = '_'.join([d_name, s_name])
 
             input1, output1, possible_values, slot_possible = Template1(dial_text)
-            item['instruction'] = '[Instruction]:' + instru + '\n[Input]:' + input1
             item['dialogue'] = dial_text['dialogue'].split(" [domain] ")[0]
             item['possible_values'] = slot_possible
             item['groundtruth'] = output1
@@ -78,7 +75,6 @@ if __name__ == '__main__':
             item['domain_slot_name'] = domain_slot_name
   
             dataset_data[d_name].append(item)
-
             
         for k,v in dataset_data.items():
             with open(f"../../raw_data/multiwoz/data/MultiWOZ_2.1_preprocess/{data_type}_{k}_LLM_zero-shot.json", 'w') as f:

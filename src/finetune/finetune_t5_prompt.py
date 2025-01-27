@@ -17,22 +17,16 @@ import argparse
 import nltk
 from transformers import set_seed
 # import config
+sys.path.append('../config')
 from config import *
 
 
 
 
 
-
-
-
-
-def finetune_t5_prompt_bak(inference_domain,  config_type = 'finetune_t5_prompt'):
+def finetune_t5_prompt(inference_domain,  config_type = 'finetune_t5_prompt'):
 
     args = generate_config(config_type,inference_domain)
-
-
-
     if int(os.environ.get("LOCAL_RANK", 0)) == 0:
         print(args)
 
@@ -46,18 +40,19 @@ def finetune_t5_prompt_bak(inference_domain,  config_type = 'finetune_t5_prompt'
 
     prefix = ""
     def preprocess_function(examples):
-
+     
         prompt_temp = """
-[INST]You are an expert prompt engineer.
-1.Transform the original slot <Restaurant-Time> into a clearer, user-friendly question that seeks the same information with <Restaurant-Time>.
-2.Enrich the new question with the relevant context in [Dialogue], like adjectival phrases for the domain or synonyms for the slot[/INST] \
- "\nOriginal Slot:" """
-        inputs = [prompt_temp + examples['domain_slot_name'][idx] +"\nOriginal Prompt: " + examples['instruction'][idx]  +"\n Optimized Prompt: " for idx in range(len(examples['instruction'])) ]
-        targets = examples['optimized_instruction']
-        inputs = [prefix + inp for inp in inputs]
-        model_inputs = tokenizer(inputs, max_length=max_input_length, padding=padding, truncation=True)
+[INST] You are an expert prompt engineer. You need to improve the original prompt into a helpful and harmless question. \
+If you find the original slot <##> is mentioned in the dialogue, cross over the question with the dialogue information, make sure the question contains adjectival phrases from the dialogue for the groundtruth noun, If not, do nothing. \
+The new question should ask for the same slot with the original slot [/INST] \
+ "\nOriginal Slot:"  """
 
-        
+        inputs = [prompt_temp + examples['domain_slot_name'][idx] +"\n Dialogue" + examples['dialogue'][idx] +"\n Optimized Prompt: " for idx in range(len(examples['optimized_instruction'])) ]
+        targets = examples['optimized_instruction']
+
+        inputs = [prefix + inp for inp in inputs]
+  
+        model_inputs = tokenizer(inputs, max_length=max_input_length, padding=padding, truncation=True)
         with tokenizer.as_target_tokenizer():
             labels = tokenizer(targets, max_length=max_target_length, padding=padding, truncation=True)
         if padding == "max_length" and ignore_pad_token_for_loss:
@@ -67,38 +62,26 @@ def finetune_t5_prompt_bak(inference_domain,  config_type = 'finetune_t5_prompt'
 
         model_inputs["labels"] = labels["input_ids"]
         return model_inputs
-    
-    
-
-    # load datasets
-
-    for path in args.data_path_list:
-        assert path.endswith('.json') or path.endswith('.jsonl'), "All files must be in .json or .jsonl format"
-
+    # load datasets transform previous data into json
 
 
     cur_data_path_list = []
-    for data_path in args.data_path_list:
-        result_data = []
-        if 'otherthree' not in data_path:
-            continue
-        for i in open(data_path).readlines():
-            i = json.loads(i)
-            res = {'instruction':i['origin']['instruction'], 
-                'dialogue': i['origin']['instruction'],
-                'Adjectival phrase':i['response'].split('[END]')[0].replace('Adjectival phrase:', ''),
-                'optimized_instruction':i['response'].split('[END]')[1].replace('\nOptimized Instruction:', ''),
-                'domain_slot_name':i['origin']['domain_slot_name']
-                }
-            if res['domain_slot_name'].split('_')[0] not in res['optimized_instruction']:
-                continue
-
-            result_data.append(res)
-        print(data_path.replace('LLM_zero-shot.json', 'finetune'))
-
-        with open(data_path.replace('LLM_zero-shot.json', 'finetune'),  'w') as f:
-            json.dump(result_data, f, indent=4)
-        cur_data_path_list.append(data_path.replace('LLM_zero-shot.json', 'finetune'))
+    for chatgpt_data_dir in args.data_path_list:
+        if os.path.exists(chatgpt_data_dir):
+            data = []
+            for line in open(chatgpt_data_dir).readlines():
+                
+                line = json.loads(line)
+                data.append({'optimized_instruction' : line['response'].split('Optimized Instruction:')[1].split(' [END]')[0],
+                            'dialogue':line['origin']['dialogue'],
+                            'possible_values':line['origin']['possible_values'],
+                            'groundtruth':line['origin']['groundtruth'],
+                            'idx':line['origin']['idx'],
+                            'domain_slot_name':line['origin']['domain_slot_name']})
+          
+        with open(chatgpt_data_dir.replace('LLM_zero-shot.json', 'finetune_prepare.json'),  'w') as f:
+            json.dump(data, f, indent=4)
+        cur_data_path_list.append(chatgpt_data_dir.replace('LLM_zero-shot.json', 'finetune_prepare.json'))
     raw_datasets = load_dataset("json", data_files=cur_data_path_list)
 
 
@@ -110,16 +93,15 @@ def finetune_t5_prompt_bak(inference_domain,  config_type = 'finetune_t5_prompt'
             test_size=val_set_size, shuffle=True, seed=42
         )
         train_data = (
-            train_val["train"].shuffle().map(preprocess_function, batched=True,batch_size=500)
+            train_val["train"].shuffle().map(preprocess_function, batched=True, batch_size = 100)
         )
         val_data = (
-            train_val["test"].shuffle().map(preprocess_function, batched=True,batch_size=500)
+            train_val["test"].shuffle().map(preprocess_function, batched=True, batch_size = 100)
         )
     else:
         train_data = raw_datasets["train"].shuffle().map(preprocess_function, batched=True)
         val_data = None
-    print(f"train_data: {train_data}")
-    print(f"val_data: {val_data}")    
+
 
     
     metric = load_metric("rouge")
@@ -203,9 +185,9 @@ def finetune_t5_prompt_bak(inference_domain,  config_type = 'finetune_t5_prompt'
     #resume_from_checkpoint = None
     train_result = trainer.train(resume_from_checkpoint=args.resume_from_checkpoint)
     model.save_pretrained(args.output_dir)
-    print(f'already saved at{args.output_dir} ')
+    print(f'Model already saved at{args.output_dir} ')
   
 
 if __name__ == "__main__":
 
-    fire.Fire(finetune_t5_prompt_bak)
+    fire.Fire(finetune_t5_prompt)

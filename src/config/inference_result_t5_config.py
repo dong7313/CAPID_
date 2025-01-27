@@ -4,7 +4,7 @@ import sys
 import re
 
 '''单个domain'''
-def gen_inference_result_t5(inference_domain):
+def gen_inference_result_t5(inference_domain, *args, **kwargs):
     from config import global_args, DotDict, domain_split, ensure_directory
 
     inference_type = 'result_finetune'
@@ -13,7 +13,13 @@ def gen_inference_result_t5(inference_domain):
     num_epochs = 2
     inference_batch_size = 5
     base_model_type = 't5'
+    dataset_type = '../../raw_data/multiwoz/data/MultiWOZ_2.1'
+    dataset_version = 'MultiWOZ_2.1'
+    base_model_path_dict = {}
     base_model_path = base_model_path_dict[base_model_type] 
+    auto_batch_size = 8
+    auto_micro_batch_size = 4
+    auto_num_epochs = 15
     if not os.path.exists(base_model_path):
         print(f"fine tuned mode path {base_model_path} not find!")
         sys.exit(1)   
@@ -22,15 +28,10 @@ def gen_inference_result_t5(inference_domain):
     ), "Please specify a --model_path, e.g. --model_path='xxx'"
     inference_output_data_dir = ensure_directory(os.path.join(f'{dataset_type}_inference/result/', base_model_type, '_'.join(map(str, ['test', inference_domain, batch_size, micro_batch_size, num_epochs]))))
     lora_weights = os.path.join(f'../../checkpoints/{dataset_version}/', inference_type, base_model_type, '_'.join(map(str, [inference_domain, batch_size, micro_batch_size, num_epochs])))
-    pro_files = os.listdir(ensure_directory(f'../../checkpoints/{dataset_version}/result_base/t5/'))
 
-    base_lora_weights = ''
-    for pro_file in pro_files:
-        pro_domain = pro_file.split('_')[0]
-        if pro_domain == inference_domain:
-            base_lora_weights = ensure_directory(os.path.join(f'../../checkpoints/{dataset_version}/result_base/t5/', pro_file))
-
-    testfile_list = [ensure_directory(os.path.join(f'{dataset_type}_inference/auto/', 't5_base_cd', '_'.join(map(str, ['hotel', 'test', inference_domain, auto_batch_size, auto_micro_batch_size, auto_num_epochs])) + '.json'))]
+    
+    testfile_list = [ensure_directory(os.path.join(f'../../checkpoints/MultiWOZ_2.1_inference/auto/', base_model_type, '_'.join(map(str, [inference_domain, 'test', batch_size, micro_batch_size, num_epochs]))))]
+    base_lora_weights = os.path.join(f'../../checkpoints/{dataset_version}/','result_finetune', base_model_type, '_'.join(map(str, [inference_domain, batch_size, micro_batch_size, num_epochs])))
 
 
     inference_result_t5 = DotDict({

@@ -39,7 +39,7 @@ def noncat_slot_value_match(str_ref_list, str_hyp, use_fuzzy_match):
 
 def evaluation(inference_domain,  config_type = 'evaluation'):
 
-    args = generate_config(config_type,inference_domain)
+    args = generate_config(config_type, inference_domain)
     print(args)
 
     # load data
@@ -52,28 +52,33 @@ def evaluation(inference_domain,  config_type = 'evaluation'):
                 result_data.append(json.loads(i))
             except:
                 pass
-    
-    base_dial_jga_dic = {} #{'idx':True} 只要有一个slot填错，即置false
     optimized_dial_jga_dic = {}
 
-    # base模型的结果
-    base_jga_res = {'jga_total':0, 'jga_acc':0, 'total':0, 'acc':0}
-    # optmized模型的结果
     optimized_jga_res = {'jga_total':0, 'jga_acc':0, 'total':0, 'acc':0}
-    jga_total = 0
-    jga_acc = 0
-    total = 0
-    acc = 0
-    domain = ''
 
+    for data in result_data:
+        if data['idx'] not in optimized_dial_jga_dic:
+            optimized_dial_jga_dic[data['idx']] = True
+        if data['groundtruth'].lower() != data['optimized_model_output'].lower():
+            if data['groundtruth'] != 'dontcare':
+                optimized_dial_jga_dic[data['idx']] = False
+  
+        else:
+            optimized_jga_res['acc'] += 1
+        optimized_jga_res['total'] += 1
+
+
+
+    for idx, result in optimized_dial_jga_dic.items():
+        optimized_jga_res['jga_total'] += 1
+        if result:
+            optimized_jga_res['jga_acc'] += 1 
 
     domain = data['domain_slot_name'].split('_')[0]
-    base_JGA = float(base_jga_res['jga_acc'])/float(base_jga_res['jga_total'])
-    base_ACC = float(base_jga_res['acc'])/float(base_jga_res['total'])
     optimized_JGA = float(optimized_jga_res['jga_acc'])/float(optimized_jga_res['jga_total'])
     optimized_ACC = float(optimized_jga_res['acc'])/float(optimized_jga_res['total'])
-    print(f'evalutation base {domain}: JGA: {base_JGA}, ACC: {base_ACC}',{base_jga_res['jga_acc']} ,{base_jga_res['jga_total']},{base_jga_res['total']})
-    print(f'evalutation optimized  {domain}: JGA: {optimized_JGA}, ACC: {optimized_ACC}', {optimized_jga_res['jga_acc']} ,{optimized_jga_res['jga_total']},{optimized_jga_res['total']})
+    print(f'evalutation optimized  {domain}: 
+          JGA: {optimized_JGA}, ACC: {optimized_ACC}')
 
 
 

@@ -3,7 +3,7 @@ import os
 import sys
 import re
 
-def gen_finetune_t5_result(inference_domain):
+def gen_finetune_t5_result(inference_domain, *args, **kwargs):
     from config import global_args,DotDict,domain_split, get_latest_checkpoint,ensure_directory
     train_domain = domain_split[inference_domain][0]
     chatgpt_domain = domain_split[inference_domain][1]
@@ -14,14 +14,15 @@ def gen_finetune_t5_result(inference_domain):
     micro_batch_size = 2
     num_epochs = 4
     base_model_type = 't5_base'
-
+    dataset_type = '../../raw_data/multiwoz/data/MultiWOZ_2.1'
+    dataset_version = 'MultiWOZ_2.1'
     auto_model_type = 't5_base'
     auto_batch_size = 16
     auto_micro_batch_size = 4
     auto_num_epochs = 10
     max_input_length = 1024
     max_target_length = 128
-    
+    base_model_path_dict = {}
     base_model_path = base_model_path_dict[base_model_type]
     if not os.path.exists(base_model_path):
         print(f"fine tuned mode path {base_model_path} not find!")
@@ -39,8 +40,8 @@ def gen_finetune_t5_result(inference_domain):
     data_path_list = []
     for prompt_domain in multi20_domain:
         prompt_type = 'train'
-        data_path_list.append(os.path.join(f'{dataset_type}_inference/auto/', 't5_base_cd', '_'.join(map(str, ['hotel', prompt_type, prompt_domain, auto_batch_size, auto_micro_batch_size, auto_num_epochs])) + '.json'))
-  
+        data_path_list.append(os.path.join(f'{dataset_type}_inference/auto/', 't5_base', '_'.join(map(str, [inference_domain, prompt_type, batch_size, micro_batch_size, num_epochs]))))
+
     val_data_path_list = None
 
     #gradient_accumulation_steps
@@ -75,7 +76,7 @@ def gen_finetune_t5_result(inference_domain):
         'max_target_length':max_target_length,
         'data_path_list': data_path_list,
         'val_data_path_list':val_data_path_list,
-        'resume_from_checkpoint': get_latest_checkpoint(  os.path.join(f'../../checkpoints/{dataset_version}/','result_finetune', 't5_base', '_'.join(map(str, [inference_domain, batch_size, micro_batch_size, 2])))), #记得改掉
+        'resume_from_checkpoint': None,
         'train_on_inputs':  False,  # if False, masks out inputs in loss
         'add_eos_token':  True,
 

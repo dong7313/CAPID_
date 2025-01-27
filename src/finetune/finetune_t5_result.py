@@ -30,9 +30,6 @@ from config import *
 def finetune_t5_result(inference_domain,  config_type = 'finetune_t5_result'):
     args = generate_config(config_type,inference_domain)
 
-
-    print(args)
-
     # load model
     tokenizer = AutoTokenizer.from_pretrained(args.model_path)
     
@@ -45,28 +42,11 @@ def finetune_t5_result(inference_domain,  config_type = 'finetune_t5_result'):
     def preprocess_function(examples):
         inputs = []
         
-        for idx in range(len(examples['instruction'])):
+        for idx in range(len(examples)):
             if examples['possible_values'] != '':
-                inputs.append(examples['optimized_output_cd_cal'][idx]+ 'You can only answer from the following available values: None, ' + examples['possible_values'][idx] + '\n [DIALOGUE_CONTEXT]:' + examples['dialogue'][idx])
+                inputs.append(examples['optimized_output'][idx]+ 'You can only answer from the following available values: None, ' + examples['possible_values'][idx] + '\n [DIALOGUE_CONTEXT]:' + examples['dialogue'][idx])
             else:
-                inputs.append(examples['optimized_output_cd_cal'][idx]+ 'If the information is not mentioned, just return None. '+ '\n [DIALOGUE_CONTEXT]:' + examples['dialogue'][idx])
-
-
-
-            # if examples['possible_values'] != '':
-
-            #     inputs.append(calibrate_prompt_cd(examples['domain_slot_name'][idx], examples['optimized_output'][idx], examples['instruction'][idx]) + 'You can only answer from the following available values: None, ' + examples['possible_values'][idx] + '\n [DIALOGUE_CONTEXT]:' + examples['dialogue'][idx])
-            # else:
-            #     inputs.append(calibrate_prompt_cd(examples['domain_slot_name'][idx], examples['optimized_output'][idx], examples['instruction'][idx]) +'\n [DIALOGUE_CONTEXT]:' + examples['dialogue'][idx])
-
-            # if examples['possible_values'] != '' and random.random() < 0.5:
-            #     inputs.append(calibrate_prompt(examples['domain_slot_name'][idx], examples['optimized_output'][idx]) + 'You can only answer from the following available values: None, ' + examples['possible_values'][idx] + '\n [DIALOGUE_CONTEXT]:' + examples['dialogue'][idx])
-            # else:
-            #     inputs.append(calibrate_prompt(examples['domain_slot_name'][idx], examples['optimized_output'][idx]) + '\n [DIALOGUE_CONTEXT]:' + examples['dialogue'][idx])
-            # if examples['possible_values'] != '' and random.random() < 0.5:
-            #     inputs.append(calibrate_prompt_with_similar(examples['domain_slot_name'][idx], examples['optimized_output'][idx]) + 'You can only answer from the following available values: None, ' + examples['possible_values'][idx] + '\n [DIALOGUE_CONTEXT]:' + examples['dialogue'][idx])
-            # else:
-            #     inputs.append(calibrate_prompt_with_similar(examples['domain_slot_name'][idx], examples['optimized_output'][idx]) + '\n [DIALOGUE_CONTEXT]:' + examples['dialogue'][idx])
+                inputs.append(examples['optimized_output'][idx]+ 'If the information is not mentioned, just return None. '+ '\n [DIALOGUE_CONTEXT]:' + examples['dialogue'][idx])
 
         targets = examples['groundtruth']
         inputs = [prefix + inp for inp in inputs]
@@ -81,7 +61,23 @@ def finetune_t5_result(inference_domain,  config_type = 'finetune_t5_result'):
 
         model_inputs["labels"] = labels["input_ids"]
         return model_inputs
-    raw_datasets = load_dataset("json", data_files=args.data_path_list)
+
+
+
+    cur_data_path_list = []
+    for chatgpt_data_dir in args.data_path_list:
+        if os.path.exists(args.chatgpt_data_dir):
+            data = []
+            for line in open(args.chatgpt_data_dir).readlines():
+                try:
+          
+                    data.append(json.loads(line))
+                except:
+                    pass
+        with open(args.chatgpt_data_dir.replace('LLM_zero-shot.json', 'finetune_prepare.json'),  'w') as f:
+            json.dump(data, f, indent=4)
+        cur_data_path_list.append(data_path.replace('LLM_zero-shot.json', 'finetune_prepare.json'))
+    raw_datasets = load_dataset("json", data_files=cur_data_path_list)
     val_set_size = 100
     if val_set_size > 0:
         train_val = raw_datasets["train"].train_test_split(
